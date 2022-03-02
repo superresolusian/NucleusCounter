@@ -16,7 +16,7 @@
     <artifactId>NucleusCounter_</artifactId>
     <version>0.1.0-SNAPSHOT</version>
 
-    <name>NucleusCounter</name>
+    <name>gui.NucleusCounter</name>
     <description>Count nuclei in cells</description>
     <url>https://github.com/superresolusian/[MY-REPO]</url>
     <inceptionYear>2022</inceptionYear>
