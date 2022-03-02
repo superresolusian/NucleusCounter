@@ -28,7 +28,7 @@ public class NucleusCounter {
     private Roi[] cellRois, nucleusRois;
     private LinkedHashMap<Roi, Point> nucleusRoisAndCentres;
     private LinkedHashMap<Roi, Roi[]> cellNucleusMap;
-    private String saveDir = null, resultsDir = null, cropsDir = null;
+    private String saveDir = null, roiDir = null, resultsDir = null, cropsDir = null;
     private boolean saveRois = false, saveResults = false, saveCrops = false;
 
     private double[] nNucleiPerCell;
@@ -58,32 +58,33 @@ public class NucleusCounter {
         imp.show();
     }
 
-    public void setSavePaths(String saveDir, String resultsDir, String cropsDir){
+    public void setSavePaths(String saveDir, String roiDir, String resultsDir, String cropsDir){
         this.saveDir = saveDir;
         this.resultsDir = resultsDir;
         this.cropsDir = cropsDir;
+        this.roiDir = roiDir;
 
-        if(this.saveDir!=null) this.saveRois = true;
+        if(this.roiDir!=null) this.saveRois = true;
         if(this.resultsDir!=null) this.saveResults = true;
         if(this.cropsDir!=null) this.saveCrops = true;
     }
 
-    public void getNucleusRois() throws IOException {
-        nucleusRois = getRois(ipNuclei, false);
+    public void getNucleusRois() {
+        nucleusRois = getRois(ipNuclei);
         nucleusRoisAndCentres = new LinkedHashMap<>();
         for(Roi r:nucleusRois){
             nucleusRoisAndCentres.put(r, getRoiCentre(r));
         }
     }
 
-    public void getCellRois() throws IOException {
-        cellRois = getRois(ipCell, saveRois);
+    public void getCellRois() {
+        cellRois = getRois(ipCell);
         nNucleiPerCell = new double[cellRois.length];
         nucleusAreaPerCell = new double[cellRois.length];
         nucleusAreaStdPerCell = new double[cellRois.length];
     }
 
-    private Roi[] getRois(ImageProcessor ip, boolean saveRois) throws IOException {
+    private Roi[] getRois(ImageProcessor ip){
         RoiManager thisManager = RoiManager.getInstance();
         if(thisManager!=null){
             rm = thisManager;
@@ -108,8 +109,6 @@ public class NucleusCounter {
         pa.analyze(new ImagePlus("", ip));
 
         Roi[] rois = rm.getRoisAsArray();
-
-        if(saveRois) roiSaver(rois);
 
         rm.reset();
 
@@ -148,7 +147,7 @@ public class NucleusCounter {
 
     }
 
-    private void analyseCrop(int n, boolean exportResults, boolean exportCrops){
+    private void analyseCrop(int n, boolean exportResults, boolean exportCrops) throws IOException {
         Roi cellRoi = cellRois[n];
         Roi[] containedNuclei = cellNucleusMap.get(cellRoi);
         Rectangle rect = cellRoi.getBounds();
@@ -167,8 +166,8 @@ public class NucleusCounter {
             if(exportResults){
                 Point centre = nucleusRoisAndCentres.get(r);
                 rt.incrementCounter();
-                rt.addValue("Centre x", centre.x);
-                rt.addValue("Centre y", centre.y);
+                rt.addValue("Centre x", centre.x-rect.x);
+                rt.addValue("Centre y", centre.y-rect.y);
                 rt.addValue("Area", area);
             }
             if(exportCrops){
@@ -204,11 +203,18 @@ public class NucleusCounter {
             impCrop.setOverlay(overlay);
             CompositeImage compositeImage = new CompositeImage(impCrop, CompositeImage.COMPOSITE);
             IJ.saveAsTiff(compositeImage, cropsDir+File.separator+cellRoi.getName());
+        }
 
+        if(saveRois){
+            String path = roiDir+File.separator+cellRoi.getName()+"-RoiSet.zip";
+            Roi[] allRois = new Roi[nNuclei+1];
+            allRois[0] = cellRoi;
+            for(int i=0; i<nNuclei; i++) allRois[i+1] = containedNuclei[i];
+            roiSaver(allRois, path);
         }
     }
 
-    public void analyseAllRois(){
+    public void analyseAllRois() throws IOException {
         ResultsTable rt = new ResultsTable();
 
         for(int i=0; i<cellRois.length; i++){
@@ -233,7 +239,6 @@ public class NucleusCounter {
         }
     }
 
-
     public static void main(String[] args) throws IOException {
         new ImageJ();
 
@@ -244,10 +249,11 @@ public class NucleusCounter {
         String dir = directoryChooser.getDirectory();
 
         String save = makeDirectory(dir+ File.separator+"image");
+        String rois = makeDirectory(save+File.separator+"local rois");
         String results = makeDirectory(save+File.separator+"tables");
         String crops = makeDirectory(save+File.separator+"crops");
 
-        nc.setSavePaths(save, results, crops);
+        nc.setSavePaths(save, rois, results, crops);
 
         nc.getCellRois();
         nc.getNucleusRois();
@@ -265,8 +271,7 @@ public class NucleusCounter {
         return dir.getAbsolutePath();
     }
 
-    private void roiSaver(Roi[] rois) throws IOException {
-        String path = saveDir+File.separator+"cellRois.zip";
+    private void roiSaver(Roi[] rois, String path) throws IOException {
         ZipOutputStream zos = new ZipOutputStream(new BufferedOutputStream(new FileOutputStream(path)));
         DataOutputStream out = new DataOutputStream(new BufferedOutputStream(zos));
         RoiEncoder re = new RoiEncoder(out);
