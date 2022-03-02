@@ -2,15 +2,18 @@ import ij.*;
 import ij.gui.Overlay;
 import ij.gui.Roi;
 import ij.io.DirectoryChooser;
+import ij.io.RoiEncoder;
 import ij.measure.ResultsTable;
 import ij.plugin.filter.ParticleAnalyzer;
 import ij.plugin.frame.RoiManager;
 import ij.process.ImageProcessor;
 
 import java.awt.*;
-import java.io.File;
+import java.io.*;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 import static java.lang.StrictMath.sqrt;
 import static org.apache.commons.math3.stat.StatUtils.mean;
@@ -65,7 +68,7 @@ public class NucleusCounter {
         if(this.cropsDir!=null) this.saveCrops = true;
     }
 
-    public void getNucleusRois(){
+    public void getNucleusRois() throws IOException {
         nucleusRois = getRois(ipNuclei, false);
         nucleusRoisAndCentres = new LinkedHashMap<>();
         for(Roi r:nucleusRois){
@@ -73,14 +76,14 @@ public class NucleusCounter {
         }
     }
 
-    public void getCellRois(){
+    public void getCellRois() throws IOException {
         cellRois = getRois(ipCell, saveRois);
         nNucleiPerCell = new double[cellRois.length];
         nucleusAreaPerCell = new double[cellRois.length];
         nucleusAreaStdPerCell = new double[cellRois.length];
     }
 
-    private Roi[] getRois(ImageProcessor ip, boolean saveRois){
+    private Roi[] getRois(ImageProcessor ip, boolean saveRois) throws IOException {
         RoiManager thisManager = RoiManager.getInstance();
         if(thisManager!=null){
             rm = thisManager;
@@ -105,6 +108,8 @@ public class NucleusCounter {
         pa.analyze(new ImagePlus("", ip));
 
         Roi[] rois = rm.getRoisAsArray();
+
+        if(saveRois) roiSaver(rois);
 
         rm.reset();
 
@@ -229,7 +234,7 @@ public class NucleusCounter {
     }
 
 
-    public static void main(String[] args){
+    public static void main(String[] args) throws IOException {
         new ImageJ();
 
         NucleusCounter nc = new NucleusCounter();
@@ -258,5 +263,28 @@ public class NucleusCounter {
             dir.mkdirs();
         }
         return dir.getAbsolutePath();
+    }
+
+    private void roiSaver(Roi[] rois) throws IOException {
+        String path = saveDir+File.separator+"cellRois.zip";
+        ZipOutputStream zos = new ZipOutputStream(new BufferedOutputStream(new FileOutputStream(path)));
+        DataOutputStream out = new DataOutputStream(new BufferedOutputStream(zos));
+        RoiEncoder re = new RoiEncoder(out);
+
+        for(int i = 0; i < rois.length; i++) {
+            Roi roi = rois[i];
+            String label = roi.getName();
+
+            if (!label.endsWith(".roi")) {
+                label = label + ".roi";
+            }
+
+            zos.putNextEntry(new ZipEntry(label));
+            re.write(roi);
+            out.flush();
+
+        }
+
+        out.close();
     }
 }
