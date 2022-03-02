@@ -1,38 +1,47 @@
 import ij.*;
 import ij.gui.Overlay;
-import ij.gui.PolygonRoi;
 import ij.gui.Roi;
+import ij.io.DirectoryChooser;
 import ij.measure.ResultsTable;
-import ij.plugin.LutLoader;
 import ij.plugin.filter.ParticleAnalyzer;
 import ij.plugin.frame.RoiManager;
 import ij.process.ImageProcessor;
-import ij.process.LUT;
 
 import java.awt.*;
+import java.io.File;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
-import java.util.Map;
 
+import static java.lang.StrictMath.sqrt;
 import static org.apache.commons.math3.stat.StatUtils.mean;
 import static org.apache.commons.math3.stat.StatUtils.variance;
 
-public class NucleusCounter_ {
+public class NucleusCounter {
 
-    private static ImageProcessor ipCell, ipNuclei;
-    private static ImagePlus imp;
-    private static ImageStack ims;
-    private static RoiManager rm;
-    private static Roi[] cellRois, nucleusRois;
-    private static LinkedHashMap<Roi, Point> nucleusRoisAndCentres;
-    private static LinkedHashMap<Roi, Roi[]> cellNucleusMap;
-    private static String savePath;
+    private ImageProcessor ipCell, ipNuclei;
+    private ImagePlus imp;
+    private ImageStack ims;
+    private RoiManager rm;
+    private Roi[] cellRois, nucleusRois;
+    private LinkedHashMap<Roi, Point> nucleusRoisAndCentres;
+    private LinkedHashMap<Roi, Roi[]> cellNucleusMap;
+    private String saveDir = null, resultsDir = null, cropsDir = null;
+    private boolean saveRois = false, saveResults = false, saveCrops = false;
 
-    private static double[] nNucleiPerCell;
-    private static double[] nucleusAreaPerCell;
+    private double[] nNucleiPerCell;
+    private double[] nucleusAreaPerCell;
+    private double[] nucleusAreaStdPerCell;
 
+    public NucleusCounter(){
+        loadTestData();
+    }
 
-    private static void loadTestData(){
+    public NucleusCounter(ImageProcessor ipCell, ImageProcessor ipNuclei){
+        this.ipCell = ipCell;
+        this.ipNuclei = ipNuclei;
+    }
+
+    private void loadTestData(){
         ImagePlus img1 = IJ.openImage("C:/Users/sianc/Code/NucleusCounter/src/main/resources/Cell.tif");
         ipCell = img1.getProcessor();
         ImagePlus img2 = IJ.openImage("C:/Users/sianc/Code/NucleusCounter/src/main/resources/Nuclei.tif");
@@ -43,29 +52,35 @@ public class NucleusCounter_ {
         ims.addSlice(ipNuclei);
 
         imp = new ImagePlus("test data", ims);
+        imp.show();
     }
 
-    private static void setSavePath(){
-        savePath = "C:/Users/sianc/Code/NucleusCounter/src/main/output";
+    public void setSavePaths(String saveDir, String resultsDir, String cropsDir){
+        this.saveDir = saveDir;
+        this.resultsDir = resultsDir;
+        this.cropsDir = cropsDir;
+
+        if(this.saveDir!=null) this.saveRois = true;
+        if(this.resultsDir!=null) this.saveResults = true;
+        if(this.cropsDir!=null) this.saveCrops = true;
     }
 
-    private static void getNucleusRois(){
-        imp.setSlice(2);
-        nucleusRois = getRois(ipNuclei);
+    public void getNucleusRois(){
+        nucleusRois = getRois(ipNuclei, false);
         nucleusRoisAndCentres = new LinkedHashMap<>();
         for(Roi r:nucleusRois){
             nucleusRoisAndCentres.put(r, getRoiCentre(r));
         }
     }
 
-    private static void getCellRois(){
-        imp.setSlice(1);
-        cellRois = getRois(ipCell);
+    public void getCellRois(){
+        cellRois = getRois(ipCell, saveRois);
         nNucleiPerCell = new double[cellRois.length];
         nucleusAreaPerCell = new double[cellRois.length];
+        nucleusAreaStdPerCell = new double[cellRois.length];
     }
 
-    private static Roi[] getRois(ImageProcessor ip){
+    private Roi[] getRois(ImageProcessor ip, boolean saveRois){
         RoiManager thisManager = RoiManager.getInstance();
         if(thisManager!=null){
             rm = thisManager;
@@ -73,8 +88,16 @@ public class NucleusCounter_ {
         }
         rm = new RoiManager();
 
+        ResultsTable rt = ResultsTable.getResultsTable();
+        if(rt!=null){
+            rt.reset();
+        }
+        rt = new ResultsTable();
+
         ParticleAnalyzer pa = new ParticleAnalyzer();
         pa.setRoiManager(rm);
+        pa.setResultsTable(rt);
+
         pa.showDialog();
 
         if(!ip.isInvertedLut()) ip.invertLut();
@@ -84,12 +107,11 @@ public class NucleusCounter_ {
         Roi[] rois = rm.getRoisAsArray();
 
         rm.reset();
-        ResultsTable thisResults = ResultsTable.getResultsTable();
-        thisResults.reset();
+
         return rois;
     }
 
-    private static Point getRoiCentre(Roi r){
+    private Point getRoiCentre(Roi r){
 
         Point[] containedPoints = r.getContainedPoints();
         int nContainedPoints = containedPoints.length;
@@ -102,7 +124,7 @@ public class NucleusCounter_ {
         return centroid;
     }
 
-    private static void matchNucleiToCells(){
+    public void matchNucleiToCells(){
         cellNucleusMap = new LinkedHashMap<>();
 
         for(Roi c:cellRois){
@@ -121,7 +143,7 @@ public class NucleusCounter_ {
 
     }
 
-    private static void analyseCrop(int n, boolean exportResults, boolean exportImage){
+    private void analyseCrop(int n, boolean exportResults, boolean exportCrops){
         Roi cellRoi = cellRois[n];
         Roi[] containedNuclei = cellNucleusMap.get(cellRoi);
         Rectangle rect = cellRoi.getBounds();
@@ -131,11 +153,12 @@ public class NucleusCounter_ {
         ResultsTable rt = new ResultsTable();
 
         int nNuclei = containedNuclei.length;
-        double averageArea = 0;
+        double[] areas = new double[nNuclei];
 
-        for(Roi r:containedNuclei){
+        for(int i=0; i<nNuclei; i++){
+            Roi r = containedNuclei[i];
             double area = r.getContainedPoints().length; // NOTE in pixels //TODO: calibrate
-            averageArea += area/nNuclei;
+            areas[i] = area;
             if(exportResults){
                 Point centre = nucleusRoisAndCentres.get(r);
                 rt.incrementCounter();
@@ -143,7 +166,7 @@ public class NucleusCounter_ {
                 rt.addValue("Centre y", centre.y);
                 rt.addValue("Area", area);
             }
-            if(exportImage){
+            if(exportCrops){
                 r.setLocation(r.getBounds().x-rect.x, r.getBounds().y-rect.y);
                 r.setPosition(2);
                 r.setStrokeColor(Color.blue);
@@ -151,12 +174,13 @@ public class NucleusCounter_ {
                 overlay.add(r);
             }
         }
-        if(exportResults) rt.save(savePath+"/"+cellRoi.getName()+".csv");
+        if(exportResults) rt.save(resultsDir+File.separator+cellRoi.getName()+".csv");
 
         nNucleiPerCell[n] = nNuclei;
-        nucleusAreaPerCell[n] = averageArea;
+        nucleusAreaPerCell[n] = mean(areas);
+        nucleusAreaStdPerCell[n] = sqrt(variance(areas));
 
-        if(exportImage){
+        if(exportCrops){
             ipCell.setRoi(rect);
             ImageProcessor ipCellCrop = ipCell.crop();
             ipNuclei.setRoi(rect);
@@ -174,42 +198,65 @@ public class NucleusCounter_ {
             ImagePlus impCrop = new ImagePlus("crop", imsCrop);
             impCrop.setOverlay(overlay);
             CompositeImage compositeImage = new CompositeImage(impCrop, CompositeImage.COMPOSITE);
-            IJ.saveAsTiff(compositeImage, savePath+"/"+cellRoi.getName());
+            IJ.saveAsTiff(compositeImage, cropsDir+File.separator+cellRoi.getName());
 
         }
     }
 
-    public static void main(String[] args){
-        new ImageJ();
-
-        loadTestData();
-        imp.show();
-
-        getCellRois();
-        getNucleusRois();
-
-        matchNucleiToCells();
-
-        setSavePath();
-
+    public void analyseAllRois(){
         ResultsTable rt = new ResultsTable();
 
         for(int i=0; i<cellRois.length; i++){
             IJ.showProgress(i+1, cellRois.length);
             IJ.showStatus("Working on cell "+(i+1)+" of "+cellRois.length);
-            analyseCrop(i, true, true);
+            analyseCrop(i, saveResults, saveCrops);
 
             rt.incrementCounter();
             rt.addValue("Cell name", cellRois[i].getName());
             rt.addValue("Cell area", cellRois[i].getContainedPoints().length);
             rt.addValue("N nuclei in cell", nNucleiPerCell[i]);
             rt.addValue("Mean nucleus area", nucleusAreaPerCell[i]);
+            rt.addValue("Std nucleus area", nucleusAreaStdPerCell[i]);
         }
 
         rt.show("Results");
 
-
+        RoiManager thisManager = RoiManager.getInstance();
+        if(thisManager!=null){
+            rm = thisManager;
+            rm.close();
+        }
     }
 
 
+    public static void main(String[] args){
+        new ImageJ();
+
+        NucleusCounter nc = new NucleusCounter();
+        nc.loadTestData();
+
+        DirectoryChooser directoryChooser = new DirectoryChooser("Choose save directory");
+        String dir = directoryChooser.getDirectory();
+
+        String save = makeDirectory(dir+ File.separator+"image");
+        String results = makeDirectory(save+File.separator+"tables");
+        String crops = makeDirectory(save+File.separator+"crops");
+
+        nc.setSavePaths(save, results, crops);
+
+        nc.getCellRois();
+        nc.getNucleusRois();
+
+        nc.matchNucleiToCells();
+
+        nc.analyseAllRois();
+    }
+
+    public static String makeDirectory(String target){
+        File dir = new File(target);
+        if (!dir.exists()){
+            dir.mkdirs();
+        }
+        return dir.getAbsolutePath();
+    }
 }
