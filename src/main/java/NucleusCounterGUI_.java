@@ -25,13 +25,16 @@ public class NucleusCounterGUI_ implements PlugIn {
     String[] maxSizeKeys = new String[]{"maxSize1", "maxSize2"};
     String[] minCircKeys = new String[]{"minCirc1", "minCirc2"};
     String[] maxCircKeys = new String[]{"maxCirc1", "maxCirc2"};
+    String[] excludeEdgeKeys = new String[]{"exclude1", "exclude2"};
+    String[] includeHolesKeys = new String[]{"include1", "include2"};
 
     double[] minSizes = new double[2];
     double[] maxSizes = new double[2];
     double[] minCircs = new double[2];
     double[] maxCircs = new double[2];
 
-    boolean excludeEdge, includeHoles;
+    boolean[] excludeEdge = new boolean[2];
+    boolean[] includeHoles = new boolean[2];
 
     String saveDir, roisDir, resultsDir, imagesDir;
 
@@ -91,8 +94,8 @@ public class NucleusCounterGUI_ implements PlugIn {
         gdAnalyze.addNumericField("Minimum circularity", getPrefs(minCircKeys[c], 0), 2);
         gdAnalyze.addNumericField("Maximum circularity", getPrefs(maxCircKeys[c], 1), 2);
         gdAnalyze.addMessage("  ");
-        gdAnalyze.addCheckbox("Exclude edge particles?", getPrefs("excludeEdge", excludeEdge));
-        gdAnalyze.addCheckbox("Include holes?", getPrefs("includeHoles", includeHoles));
+        gdAnalyze.addCheckbox("Exclude edge particles?", getPrefs(excludeEdgeKeys[c], excludeEdge[c]));
+        gdAnalyze.addCheckbox("Include holes?", getPrefs(includeHolesKeys[c], includeHoles[c]));
     }
 
     public boolean loadSettings() {
@@ -137,8 +140,8 @@ public class NucleusCounterGUI_ implements PlugIn {
         minCircs[c] = gdAnalyze.getNextNumber();
         maxCircs[c] = gdAnalyze.getNextNumber();
 
-        excludeEdge = gdAnalyze.getNextBoolean();
-        includeHoles = gdAnalyze.getNextBoolean();
+        excludeEdge[c] = gdAnalyze.getNextBoolean();
+        includeHoles[c] = gdAnalyze.getNextBoolean();
 
         setPrefs(minSizeKeys[c], minSizes[c]);
         setPrefs(maxSizeKeys[c], maxSizes[c]);
@@ -146,8 +149,8 @@ public class NucleusCounterGUI_ implements PlugIn {
         setPrefs(minCircKeys[c], minCircs[c]);
         setPrefs(maxCircKeys[c], maxCircs[c]);
 
-        setPrefs("excludeEdge", excludeEdge);
-        setPrefs("includeHoles", includeHoles);
+        setPrefs(excludeEdgeKeys[c], excludeEdge[c]);
+        setPrefs(includeHolesKeys[c], includeHoles[c]);
         return true;
     }
 
@@ -172,16 +175,13 @@ public class NucleusCounterGUI_ implements PlugIn {
         NucleusCounter nucleusCounter = new NucleusCounter(ipCell, ipNucleus);
 
         nucleusCounter.setSavePaths(saveDir, roisDir, resultsDir, imagesDir);
+        nucleusCounter.setMeasurements(getArea, getCentroid, getPerimeter, getEllipse, getCirc, getAR, getRound, getSolidity);
 
-        imp.setSlice(cellChannel);
-        IJ.showMessage("Set analyze particles options for cell channel");
-        nucleusCounter.getCellRois();
-        imp.setSlice(nucleusChannel);
-        IJ.showMessage("Set analyze particles options for nucleus channel");
-        nucleusCounter.getNucleusRois();
+        nucleusCounter.getCellRois(minSizes[0], maxSizes[0], minCircs[0], maxCircs[0], excludeEdge[0], includeHoles[0]);
+        nucleusCounter.getNucleusRois(minSizes[1], maxSizes[1], minCircs[1], maxCircs[1], excludeEdge[1], includeHoles[1]);
 
-        nucleusCounter.matchNucleiToCells();
-        nucleusCounter.analyseAllRois();
+        nucleusCounter.matchNucleiToCells_v2();
+        nucleusCounter.analyseAllRois_v2();
     }
 
     public void run() {run("");}

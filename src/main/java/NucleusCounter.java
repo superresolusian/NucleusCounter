@@ -461,7 +461,7 @@ public class NucleusCounter {
             }
         }
 
-        rt.show("Results");
+        rt.show("Summary Results");
 
         RoiManager thisManager = RoiManager.getInstance();
         if(thisManager!=null){
