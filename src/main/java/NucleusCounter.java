@@ -30,7 +30,7 @@ public class NucleusCounter {
     private RoiManager rm;
     private ArrayList<String> columns;
     private int nMeasurements;
-    private Roi[] cellRois, nucleusRois;
+    private Roi[] cellRois, nucleusRois, cropRois;
     private int nCellRois, nNucleusRois;
     private LinkedHashMap<String, double[]> nucleusMeasurements, cellMeasurements;
     private LinkedHashMap<Roi, Point> nucleusRoisAndCentres;
@@ -298,6 +298,11 @@ public class NucleusCounter {
         }
 
         if(exportResults) rt.save(resultsDir+File.separator+cellRoi.getName()+".csv");
+        if(exportCrops){
+            Roi cropRoi = new Roi(rect);
+            cropRoi.setName(cellRoi.getName());
+            cropRois[n] = cropRoi;
+        }
 
         nNucleiPerCell[n] = nNuclei;
 
@@ -445,6 +450,7 @@ public class NucleusCounter {
 
     public void analyseAllRois_v2() throws IOException {
         ResultsTable rt = new ResultsTable();
+        cropRois = new Roi[nCellRois];
 
         for(int i=0; i<cellRois.length; i++){
             IJ.showProgress(i+1, nCellRois);
@@ -462,6 +468,8 @@ public class NucleusCounter {
         }
 
         rt.show("Summary Results");
+
+        roiSaver(cropRois, saveDir+File.separator+"Crops-RoiSet.zip");
 
         RoiManager thisManager = RoiManager.getInstance();
         if(thisManager!=null){
