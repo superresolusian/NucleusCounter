@@ -88,6 +88,7 @@ public class NucleusCounterGUI_ implements PlugIn {
 
     public void setupAnalyzeDialog(int c){
         gdAnalyze = new NonBlockingGenericDialog("Set up analyze particles for channel "+(c+1));
+        gdAnalyze.addMessage("Please check settings for analysing particles in channel "+(c+1));
         gdAnalyze.addNumericField("Minimum size", getPrefs(minSizeKeys[c], 0), 0);
         gdAnalyze.addNumericField("Maximum size", getPrefs(maxSizeKeys[c], Double.POSITIVE_INFINITY), 0);
         gdAnalyze.addMessage("  ");
