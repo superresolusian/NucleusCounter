@@ -3,12 +3,12 @@ import ij.gui.Overlay;
 import ij.gui.Roi;
 import ij.io.DirectoryChooser;
 import ij.io.RoiEncoder;
-import ij.measure.Measurements;
+import ij.measure.Calibration;
 import ij.measure.ResultsTable;
 import ij.plugin.filter.ParticleAnalyzer;
 import ij.plugin.frame.RoiManager;
 import ij.process.ImageProcessor;
-import sun.awt.image.ImageWatched;
+
 
 import java.awt.*;
 import java.io.*;
@@ -18,7 +18,6 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
 import static java.lang.StrictMath.sqrt;
-import static java.lang.StrictMath.toDegrees;
 import static org.apache.commons.math3.stat.StatUtils.mean;
 import static org.apache.commons.math3.stat.StatUtils.variance;
 
@@ -30,7 +29,9 @@ public class NucleusCounter {
     private RoiManager rm;
     private ArrayList<String> columns;
     private int nMeasurements;
+    private Calibration calibration;
     private Roi[] cellRois, nucleusRois, cropRois;
+    private String[] cellRoisNames;
     private int nCellRois, nNucleusRois;
     private LinkedHashMap<String, double[]> nucleusMeasurements, cellMeasurements;
     private LinkedHashMap<Roi, Point> nucleusRoisAndCentres;
@@ -50,9 +51,10 @@ public class NucleusCounter {
         loadTestData();
     }
 
-    public NucleusCounter(ImageProcessor ipCell, ImageProcessor ipNuclei){
+    public NucleusCounter(ImageProcessor ipCell, ImageProcessor ipNuclei, Calibration calibration){
         this.ipCell = ipCell;
         this.ipNuclei = ipNuclei;
+        this.calibration = calibration;
     }
 
     private void loadTestData(){
@@ -60,6 +62,8 @@ public class NucleusCounter {
         ipCell = img1.getProcessor();
         ImagePlus img2 = IJ.openImage("C:/Users/sianc/Code/NucleusCounter/src/main/resources/Nuclei.tif");
         ipNuclei = img2.getProcessor();
+
+        this.calibration = img1.getCalibration();
 
         ims = new ImageStack(ipCell.getWidth(), ipCell.getHeight());
         ims.addSlice(ipCell);
@@ -127,7 +131,7 @@ public class NucleusCounter {
     }
 
     public void getNucleusRois(double minSize, double maxSize, double minCirc, double maxCirc, boolean excludeEdge, boolean includeHoles){
-        TableScraper ts = new TableScraper(ipNuclei);
+        TableScraper ts = new TableScraper(ipNuclei, calibration);
         ts.setOptions(true, excludeEdge, includeHoles);
         ts.setConstraints(minSize, maxSize, minCirc, maxCirc);
         Object[] nucleiOutput = ts.getRois();
@@ -145,7 +149,7 @@ public class NucleusCounter {
     }
 
     public void getCellRois(double minSize, double maxSize, double minCirc, double maxCirc, boolean excludeEdge, boolean includeHoles){
-        TableScraper ts = new TableScraper(ipCell);
+        TableScraper ts = new TableScraper(ipCell, calibration);
         ts.setOptions(true, excludeEdge, includeHoles);
         ts.setConstraints(minSize, maxSize, minCirc, maxCirc);
         Object[] cellOutput = ts.getRois();
@@ -154,7 +158,9 @@ public class NucleusCounter {
         ResultsTable rt = (ResultsTable) cellOutput[1];
         nCellRois = cellRois.length;
         nNucleiPerCell = new double[nCellRois];
+        cellRoisNames = new String[nCellRois];
         cellMeasurements = getArraysFromRt(columns, rt);
+        for(int i=0; i<nCellRois; i++) cellRoisNames[i] = cellRois[i].getName();
     }
 
     private LinkedHashMap<String, double[]> getArraysFromRt(ArrayList<String> headers, ResultsTable rt){
@@ -280,11 +286,12 @@ public class NucleusCounter {
                 double[] measurement = containedNucleiMeasurements.get(h);
                 double thisMeasurement = nucleusMeasurements.get(h)[ci];
                 measurement[i] = thisMeasurement;
+                if(h=="Area") //TODO:pixel calibration!!!!!!
                 containedNucleiMeasurements.put(h, measurement);
                 if(exportResults){
                     rt.addValue("Nucleus name", r.getName());
-                    if(h=="X") rt.addValue(h, thisMeasurement-rect.x);
-                    else if(h=="Y") rt.addValue(h, thisMeasurement-rect.y);
+                    if(h=="X") rt.addValue(h, thisMeasurement-rect.x*calibration.pixelWidth);
+                    else if(h=="Y") rt.addValue(h, thisMeasurement-rect.y*calibration.pixelWidth);
                     else rt.addValue(h, thisMeasurement);
                 }
             }
@@ -342,6 +349,7 @@ public class NucleusCounter {
             imsCrop.addSlice(ipCellCrop);
             imsCrop.addSlice(ipNucleiCrop);
             ImagePlus impCrop = new ImagePlus("crop", imsCrop);
+            impCrop.setCalibration(calibration);
             impCrop.setOverlay(overlay);
             CompositeImage compositeImage = new CompositeImage(impCrop, CompositeImage.COMPOSITE);
             IJ.saveAsTiff(compositeImage, cropsDir+File.separator+cellRoi.getName());
@@ -451,6 +459,7 @@ public class NucleusCounter {
     public void analyseAllRois_v2() throws IOException {
         ResultsTable rt = new ResultsTable();
         cropRois = new Roi[nCellRois];
+        double[] cellAreas = cellMeasurements.get("Area");
 
         for(int i=0; i<cellRois.length; i++){
             IJ.showProgress(i+1, nCellRois);
@@ -459,6 +468,8 @@ public class NucleusCounter {
 
             rt.incrementCounter();
             rt.addValue("Cell name", cellRois[i].getName());
+            rt.addValue("Cell area", cellAreas[i]);
+            rt.addValue(" ", "-->");
             rt.addValue("N nuclei in cell", nNucleiPerCell[i]);
             for(String h:columns){
                 if(!summaryMeanMap.containsKey(h)) continue;
@@ -469,13 +480,18 @@ public class NucleusCounter {
 
         rt.show("Summary Results");
 
-        roiSaver(cropRois, saveDir+File.separator+"Crops-RoiSet.zip");
+        if(saveDir!=null) {
+            roiSaver(cropRois, saveDir + File.separator + "Crops-RoiSet.zip");
+        }
 
         RoiManager thisManager = RoiManager.getInstance();
         if(thisManager!=null){
             rm = thisManager;
             rm.close();
         }
+        rm = new RoiManager();
+
+        for(Roi roi:cellRois) rm.addRoi(roi);
     }
 
 

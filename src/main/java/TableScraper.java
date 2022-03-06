@@ -2,6 +2,7 @@ import ij.IJ;
 import ij.ImageJ;
 import ij.ImagePlus;
 import ij.gui.Roi;
+import ij.measure.Calibration;
 import ij.measure.Measurements;
 import ij.measure.ResultsTable;
 import ij.plugin.filter.ParticleAnalyzer;
@@ -13,6 +14,7 @@ public class TableScraper implements Measurements{
     RoiManager rm;
     ResultsTable rt;
     private ImageProcessor ip;
+    private Calibration calibration = null;
     double minSize, maxSize, minCirc, maxCirc;
     private int measurements = ALL_STATS, options;
 
@@ -22,8 +24,9 @@ public class TableScraper implements Measurements{
         this.ip = ipCell;
     }
 
-    public TableScraper(ImageProcessor ip){
+    public TableScraper(ImageProcessor ip, Calibration calibration){
         this.ip = ip;
+        this.calibration = calibration;
     }
 
     public void setMeasurements(boolean measureArea, boolean measureCoM, boolean measureCircularity,
@@ -81,7 +84,9 @@ public class TableScraper implements Measurements{
 
         if(!ip.isInvertedLut()) ip.invertLut();
 
-        pa.analyze(new ImagePlus("", ip));
+        ImagePlus analysisImp = new ImagePlus("", ip);
+        analysisImp.setCalibration(calibration);
+        pa.analyze(analysisImp);
 
         Roi[] rois = rm.getRoisAsArray();
 

@@ -89,8 +89,8 @@ public class NucleusCounterGUI_ implements PlugIn {
     public void setupAnalyzeDialog(int c){
         gdAnalyze = new NonBlockingGenericDialog("Set up analyze particles for channel "+(c+1));
         gdAnalyze.addMessage("Please check settings for analysing particles in channel "+(c+1));
-        gdAnalyze.addNumericField("Minimum size", getPrefs(minSizeKeys[c], 0), 0);
-        gdAnalyze.addNumericField("Maximum size", getPrefs(maxSizeKeys[c], Double.POSITIVE_INFINITY), 0);
+        gdAnalyze.addNumericField("Minimum size (in pixels)", getPrefs(minSizeKeys[c], 0), 0);
+        gdAnalyze.addNumericField("Maximum size (in pixels)", getPrefs(maxSizeKeys[c], Double.POSITIVE_INFINITY), 0);
         gdAnalyze.addMessage("  ");
         gdAnalyze.addNumericField("Minimum circularity", getPrefs(minCircKeys[c], 0), 2);
         gdAnalyze.addNumericField("Maximum circularity", getPrefs(maxCircKeys[c], 1), 2);
@@ -173,7 +173,7 @@ public class NucleusCounterGUI_ implements PlugIn {
         ImageProcessor ipCell = ims.getProcessor(cellChannel);
         ImageProcessor ipNucleus = ims.getProcessor(nucleusChannel);
 
-        NucleusCounter nucleusCounter = new NucleusCounter(ipCell, ipNucleus);
+        NucleusCounter nucleusCounter = new NucleusCounter(ipCell, ipNucleus, imp.getCalibration());
 
         nucleusCounter.setSavePaths(saveDir, roisDir, resultsDir, imagesDir);
         nucleusCounter.setMeasurements(getArea, getCentroid, getPerimeter, getEllipse, getCirc, getAR, getRound, getSolidity);
