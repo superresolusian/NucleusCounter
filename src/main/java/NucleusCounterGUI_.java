@@ -161,6 +161,11 @@ public class NucleusCounterGUI_ implements PlugIn {
             DirectoryChooser directoryChooser = new DirectoryChooser("Choose save directory");
             String dir = directoryChooser.getDirectory();
 
+            if(dir==null){
+                IJ.error("Oops! No valid save directory selected :(");
+                throw new IOException("No valid save directory selected...");
+            }
+
             saveDir = makeDirectory(dir+File.separator+imageTitle+" - results");
 
             if(saveRoiSets) roisDir = makeDirectory(saveDir+File.separator+"local rois");
