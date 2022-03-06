@@ -267,6 +267,8 @@ public class NucleusCounter {
         Roi cellRoi = cellRois[n];
         int[] containedNucleiIndices = cellNucleusMap_v2.get(n);
         Rectangle rect = cellRoi.getBounds();
+        Roi _cellRoi = (Roi) cellRoi.clone();
+        _cellRoi.setLocation(_cellRoi.getBounds().x- rect.x, cellRoi.getBounds().y -rect.y);
 
         Overlay overlay = new Overlay();
 
@@ -286,7 +288,6 @@ public class NucleusCounter {
                 double[] measurement = containedNucleiMeasurements.get(h);
                 double thisMeasurement = nucleusMeasurements.get(h)[ci];
                 measurement[i] = thisMeasurement;
-                if(h=="Area") //TODO:pixel calibration!!!!!!
                 containedNucleiMeasurements.put(h, measurement);
                 if(exportResults){
                     rt.addValue("Nucleus name", r.getName());
@@ -339,11 +340,10 @@ public class NucleusCounter {
             ipNuclei.setRoi(rect);
             ImageProcessor ipNucleiCrop = ipNuclei.crop();
 
-            cellRoi.setLocation(cellRoi.getBounds().x- rect.x, cellRoi.getBounds().y -rect.y);
-            cellRoi.setPosition(1);
-            cellRoi.setStrokeColor(Color.white);
-            cellRoi.setStrokeWidth(1);
-            overlay.add(cellRoi);
+            _cellRoi.setPosition(1);
+            _cellRoi.setStrokeColor(Color.white);
+            _cellRoi.setStrokeWidth(1);
+            overlay.add(_cellRoi);
 
             ImageStack imsCrop = new ImageStack(rect.width, rect.height);
             imsCrop.addSlice(ipCellCrop);
@@ -352,7 +352,7 @@ public class NucleusCounter {
             impCrop.setCalibration(calibration);
             impCrop.setOverlay(overlay);
             CompositeImage compositeImage = new CompositeImage(impCrop, CompositeImage.COMPOSITE);
-            IJ.saveAsTiff(compositeImage, cropsDir+File.separator+cellRoi.getName());
+            IJ.saveAsTiff(compositeImage, cropsDir+File.separator+_cellRoi.getName());
         }
 
         if(saveRois){
@@ -480,9 +480,7 @@ public class NucleusCounter {
 
         rt.show("Summary Results");
 
-        if(saveDir!=null) {
-            roiSaver(cropRois, saveDir + File.separator + "Crops-RoiSet.zip");
-        }
+        if(saveDir!=null) roiSaver(cropRois, saveDir + File.separator + "Crops-RoiSet.zip");
 
         RoiManager thisManager = RoiManager.getInstance();
         if(thisManager!=null){
@@ -492,6 +490,7 @@ public class NucleusCounter {
         rm = new RoiManager();
 
         for(Roi roi:cellRois) rm.addRoi(roi);
+
     }
 
 
