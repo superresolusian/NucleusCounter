@@ -80,9 +80,9 @@ public class NucleusCounterGUI_ implements PlugIn {
         gd.addCheckbox("Roundness", getPrefs("getRound", false));
         gd.addCheckbox("Solidity", getPrefs("getSolidity", false));
         gd.addMessage("-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-");
-        gd.addCheckbox("Save Roi sets?", getPrefs("saveRoiSets", saveRoiSets));
         gd.addCheckbox("Save results per cell?", getPrefs("saveResults", saveResults));
         gd.addCheckbox("Save individual cell crops?", getPrefs("saveImages", saveImages));
+        gd.addCheckbox("Save Roi sets?", getPrefs("saveRoiSets", saveRoiSets));
         //TODO: debug inverted image maybe
     }
 
@@ -112,9 +112,9 @@ public class NucleusCounterGUI_ implements PlugIn {
         getRound = gd.getNextBoolean();
         getSolidity = gd.getNextBoolean();
 
-        saveRoiSets = gd.getNextBoolean();
         saveResults = gd.getNextBoolean();
         saveImages = gd.getNextBoolean();
+        saveRoiSets = gd.getNextBoolean();
 
         setPrefs("cellChannel", channelChoice[cellChannel-1]);
         setPrefs("nucleusChannel", channelChoice[nucleusChannel-1]);
@@ -128,9 +128,9 @@ public class NucleusCounterGUI_ implements PlugIn {
         setPrefs("getRound", getRound);
         setPrefs("getSolidity", getSolidity);
 
-        setPrefs("saveRoiSets", saveRoiSets);
         setPrefs("saveResults", saveResults);
         setPrefs("saveImages", saveImages);
+        setPrefs("saveRoiSets", saveRoiSets);
         return true;
     }
 
