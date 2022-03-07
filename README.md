@@ -5,6 +5,9 @@ This is a plugin for counting and measuring 'nuclei' within 'cells' in images.
 
 
 ## Installation
+Click on `nucleuscounter_.jar` in the file list above, and then download it.
+![Downloading a file from Github](/imgs/download.png "Press this button to download the .jar file")
+
 Windows: Navigate to the Fiji.app folder where you installed Fiji, and put the `nucleuscounter_.jar` file from this repository into the plugins folder.
 
 Mac: In Applications, right-click on Fiji and click 'Show package contents'. Then put the `nucleuscounter_.jar` file from this repository into the plugins folder.
