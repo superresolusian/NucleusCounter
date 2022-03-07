@@ -178,7 +178,7 @@ public class NucleusCounterGUI_ implements PlugIn {
         ImageProcessor ipCell = ims.getProcessor(cellChannel);
         ImageProcessor ipNucleus = ims.getProcessor(nucleusChannel);
 
-        NucleusCounter nucleusCounter = new NucleusCounter(ipCell, ipNucleus, imp.getCalibration());
+        NucleusCounter nucleusCounter = new NucleusCounter(imp, cellChannel, nucleusChannel);
 
         nucleusCounter.setSavePaths(saveDir, roisDir, resultsDir, imagesDir);
         nucleusCounter.setMeasurements(getArea, getCentroid, getPerimeter, getEllipse, getCirc, getAR, getRound, getSolidity);

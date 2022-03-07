@@ -23,6 +23,7 @@ import static org.apache.commons.math3.stat.StatUtils.variance;
 
 public class NucleusCounter {
 
+    private int cellChannel=1, nucleusChannel=2;
     private ImageProcessor ipCell, ipNuclei;
     private ImagePlus imp;
     private ImageStack ims;
@@ -49,6 +50,14 @@ public class NucleusCounter {
 
     public NucleusCounter(){
         loadTestData();
+    }
+
+    public NucleusCounter(ImagePlus imp, int cellChannel, int nucleusChannel){
+        this.imp = imp;
+        this.ims = imp.getImageStack();
+        this.ipCell = ims.getProcessor(cellChannel);
+        this.ipNuclei = ims.getProcessor(nucleusChannel);
+        this.calibration = imp.getCalibration();
     }
 
     public NucleusCounter(ImageProcessor ipCell, ImageProcessor ipNuclei, Calibration calibration){
@@ -489,7 +498,10 @@ public class NucleusCounter {
         }
         rm = new RoiManager();
 
+        imp.setSlice(cellChannel);
         for(Roi roi:cellRois) rm.addRoi(roi);
+        imp.setSlice(nucleusChannel);
+        for(Roi roi:nucleusRois) rm.addRoi(roi);
 
     }
 
